@@ -29,10 +29,11 @@ Ce projet utilise des techniques avancées d'analyse de données et de visualisa
 
 2. Installer les dépendances :
 
-pip install -r requirements.txt
+   ```bash
+   pip install -r requirements.txt
 
 3. Lancez l'application :
-
-python app.py
+   ```bash
+   python app.py
 
 
