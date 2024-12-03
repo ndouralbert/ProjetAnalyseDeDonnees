@@ -1,39 +1,111 @@
-# Projet d'Analyse de Données sur le Terrorisme
+```markdown
+# Analyse Avancée des Données du Terrorisme Mondial
 
-## Mis à jour le 02/12/2024
+## 🌍 Présentation du Projet
 
-Ce projet utilise des techniques avancées d'analyse de données et de visualisation pour explorer et comprendre les tendances du terrorisme mondial.
+### Contexte
+Ce projet de recherche vise à analyser en profondeur les dynamiques globales du terrorisme en utilisant des techniques avancées de data science et de machine learning.
 
-### Fonctionnalités principales
+### Objectifs
+- Cartographier les tendances géographiques et temporelles des actes terroristes
+- Identifier les facteurs de risque et les modèles émergents
+- Développer des visualisations interactives et des insights exploitables
 
-- Analyse exploratoire des données (EDA) sur un ensemble de données du terrorisme mondial
-- Visualisations interactives utilisant Dash et Plotly
-- Techniques de clustering (KMeans, DBSCAN, GaussianMixture)
-- Réduction de dimensionnalité avec PCA et t-SNE
-- Analyse de réseau avec NetworkX et ForceAtlas2
+## 🛠 Technologies et Méthodologies
 
-### Technologies utilisées
+### Stack Technologique
+- **Langages** : Python 3.9+
+- **Analyse de Données** : Pandas, NumPy
+- **Machine Learning** : Scikit-learn
+- **Visualisation** : Plotly, Dash, Matplotlib, Seaborn
+- **Analyse de Réseau** : NetworkX
 
-- Python 3.x
-- Pandas et NumPy pour la manipulation des données
-- Scikit-learn pour le machine learning
-- Dash et Plotly pour les visualisations interactives
-- Matplotlib et Seaborn pour les visualisations statiques
-- NetworkX pour l'analyse de réseau
+### Techniques Avancées
+- Clustering (KMeans, DBSCAN)
+- Réduction de dimensionnalité (PCA, t-SNE)
+- Analyse de réseau
+- Modèles de mélange gaussien
 
-### Installation
+## 📊 Fonctionnalités Principales
 
-1. Clonez ce dépôt
-   ```bash
-   git clone https://github.com/ndouralbert/ProjetAnalyseDeDonnees.git
+1. **Analyse Exploratoire des Données**
+   - Nettoyage et prétraitement des données
+   - Analyse statistique descriptive
+   - Identification des tendances et anomalies
 
-2. Installer les dépendances :
+2. **Visualisations Interactives**
+   - Cartes géographiques dynamiques
+   - Graphiques de clustering
+   - Réseaux d'interactions terroristes
 
-   ```bash
-   pip install -r requirements.txt
+3. **Modélisation Prédictive**
+   - Identification des zones à risque
+   - Analyse des facteurs de propagation
 
-3. Lancez l'application :
-   ```bash
-   python app.py
+## 🚀 Installation et Configuration
+
+### Prérequis
+- Python 3.9+
+- Environnement virtuel recommandé
+
+### Étapes d'Installation
+```bash
+# Cloner le dépôt
+git clone https://github.com/ndouralbert/ProjetAnalyseDeDonnees.git
+
+# Créer un environnement virtuel
+python -m venv venv
+source venv/bin/activate  # Sur Linux/Mac
+# venv\Scripts\activate  # Sur Windows
+
+# Installer les dépendances
+pip install -r requirements.txt
+
+# Lancer l'application
+python app.py
+```
+
+## 📁 Structure du Projet
+
+```
+ProjetAnalyseDeDonnees/
+│
+├── app.py                  # Application Dash principale
+├── README.md
+└── requirements.txt        # Dépendances du projet
+```
+
+## 🔍 Méthodologie de Recherche
+
+### Collecte de Données
+- Source principale : Global Terrorism Database (GTD)
+- Période couverte : 1970-2017
+- Critères de sélection : Tous les incidents terroristes enregistrés dans la base de données GTD
+
+### Approche Méthodologique
+1. Nettoyage et prétraitement des données
+2. Analyse exploratoire
+3. Clustering et segmentation
+4. Visualisation et interprétation
+
+## 📈 Principaux Résultats
+
+[Cette section sera complétée avec les découvertes principales du projet]
+
+## 🤝 Contribution
+
+Les contributions sont les bienvenues ! Merci de lire les directives de contribution avant de soumettre une pull request.
 
 
+## 📞 Contact
+
+- Albert NDOUR - albert.ndour@etu.univ-lyon1.fr
+- Chaimae DARDOURI - chaimae.dardouri@etu.univ-lyon1.fr
+- FOUSSENI SALAMI CISSE TIDJANI - tidjani.fousseni-salami-cisse@etu.univ-lyon1.fr
+
+Lien du Projet : [https://github.com/ndouralbert/ProjetAnalyseDeDonnees](https://github.com/ndouralbert/ProjetAnalyseDeDonnees)
+
+## 📊 Données
+
+Pour télécharger les données du terrorisme (fichier globalterrorismdb_0718dist.csv), veuillez visiter le lien suivant :
+[Global Terrorism Database sur Kaggle](https://www.kaggle.com/datasets/START-UMD/gtd)
