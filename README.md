@@ -1,4 +1,3 @@
-```markdown
 # Analyse Avancée des Données du Terrorisme Mondial
 
 ## 🌍 Présentation du Projet
