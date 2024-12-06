@@ -3,7 +3,7 @@
 ## 🌍 Présentation du Projet
 
 ### Contexte
-Ce projet de recherche vise à analyser en profondeur les dynamiques globales du terrorisme en utilisant des techniques avancées de data science et de machine learning.
+Ce projet de recherche vise à analyser les dynamiques globales du terrorisme en utilisant des techniques de data science.
 
 ### Objectifs
 - Cartographier les tendances géographiques et temporelles des actes terroristes
@@ -73,6 +73,13 @@ ProjetAnalyseDeDonnees/
 ├── README.md
 └── requirements.txt        # Dépendances du projet
 ```
+## 📊 Données
+
+Pour télécharger les données du terrorisme (fichier globalterrorismdb_0718dist.csv), veuillez visiter le lien suivant :
+[Global Terrorism Database sur Kaggle](https://www.kaggle.com/datasets/START-UMD/gtd)
+
+Lien du Projet : [https://github.com/ndouralbert/ProjetAnalyseDeDonnees](https://github.com/ndouralbert/ProjetAnalyseDeDonnees)
+
 
 ## 🔍 Méthodologie de Recherche
 
@@ -84,27 +91,16 @@ ProjetAnalyseDeDonnees/
 ### Approche Méthodologique
 1. Nettoyage et prétraitement des données
 2. Analyse exploratoire
-3. Clustering et segmentation
-4. Visualisation et interprétation
-
-## 📈 Principaux Résultats
-
-[Cette section sera complétée avec les découvertes principales du projet]
-
-## 🤝 Contribution
-
-Les contributions sont les bienvenues ! Merci de lire les directives de contribution avant de soumettre une pull request.
+3. Clustering 
+4. Réduction de dimension
+5. Distribution des données
+6. Graphe de réseau
 
 
-## 📞 Contact
+
+## 📞 Contact 🤝
 
 - Albert NDOUR - albert.ndour@etu.univ-lyon1.fr
 - Chaimae DARDOURI - chaimae.dardouri@etu.univ-lyon1.fr
 - FOUSSENI SALAMI CISSE TIDJANI - tidjani.fousseni-salami-cisse@etu.univ-lyon1.fr
 
-Lien du Projet : [https://github.com/ndouralbert/ProjetAnalyseDeDonnees](https://github.com/ndouralbert/ProjetAnalyseDeDonnees)
-
-## 📊 Données
-
-Pour télécharger les données du terrorisme (fichier globalterrorismdb_0718dist.csv), veuillez visiter le lien suivant :
-[Global Terrorism Database sur Kaggle](https://www.kaggle.com/datasets/START-UMD/gtd)
