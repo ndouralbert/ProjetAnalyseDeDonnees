@@ -12,12 +12,30 @@ Ce projet de recherche vise à analyser les dynamiques globales du terrorisme en
 
 ## 🛠 Technologies et Méthodologies
 
+
 ### Stack Technologique
+
+Ce projet utilise un ensemble de bibliothèques Python pour l'analyse de données, la visualisation et le développement d'applications web. Voici les principales bibliothèques utilisées :
+
 - **Langages** : Python 3.9+
-- **Analyse de Données** : Pandas, NumPy
-- **Machine Learning** : Scikit-learn
-- **Visualisation** : Plotly, Dash, Matplotlib, Seaborn
-- **Analyse de Réseau** : NetworkX
+  
+- **Analyse de Données** :
+  - **Pandas** : Pour la manipulation et l'analyse des données.
+  - **NumPy** : Pour les opérations sur les tableaux et les calculs numériques.
+
+- **Visualisation** :
+  - **Matplotlib** : Pour la création de graphiques statiques.
+  - **Seaborn** : Pour des visualisations statistiques améliorées.
+  - **Plotly** : Pour des visualisations interactives et dynamiques.
+  - **Dash** : Framework pour construire des applications web interactives avec des visualisations.
+
+- **Analyse de Réseau** :
+  - **NetworkX** : Pour la création et l'analyse de graphes.
+  - **fa2_modified (ForceAtlas2)** : Pour la visualisation de réseaux avec l'algorithme ForceAtlas2.
+  - **community (pour la détection de communautés)** : Pour identifier des communautés dans des graphes.
+
+- **Machine Learning et Analyse Statistique** :
+  - **Scikit-learn** : Pour le clustering (KMeans, DBSCAN), la réduction de dimension (PCA, t-SNE), et d'autres algorithmes d'apprentissage machine.
 
 ### Techniques Avancées
 - Clustering (KMeans, DBSCAN)
