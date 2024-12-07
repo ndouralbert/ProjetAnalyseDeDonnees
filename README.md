@@ -34,8 +34,6 @@ Ce projet utilise un ensemble de bibliothèques Python pour l'analyse de donnée
   - **fa2_modified (ForceAtlas2)** : Pour la visualisation de réseaux avec l'algorithme ForceAtlas2.
   - **community (pour la détection de communautés)** : Pour identifier des communautés dans des graphes.
 
-- **Machine Learning et Analyse Statistique** :
-  - **Scikit-learn** : Pour le clustering (KMeans, DBSCAN), la réduction de dimension (PCA, t-SNE), et d'autres algorithmes d'apprentissage machine.
 
 
 ## 📊 Fonctionnalités Principales
