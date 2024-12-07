@@ -96,6 +96,9 @@ ProjetAnalyseDeDonnees/
 Pour télécharger les données du terrorisme (fichier globalterrorismdb_0718dist.csv), veuillez visiter le lien suivant :
 [Global Terrorism Database sur Kaggle](https://www.kaggle.com/datasets/START-UMD/gtd)
 
+Une fois ce fichier télécharger, mettez le dans le même emplacement que le fichiers App.py de l'application.
+
+
 Lien du Projet : [https://github.com/ndouralbert/ProjetAnalyseDeDonnees](https://github.com/ndouralbert/ProjetAnalyseDeDonnees)
 
 
