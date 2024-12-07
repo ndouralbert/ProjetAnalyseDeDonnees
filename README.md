@@ -53,9 +53,11 @@ Ce projet utilise un ensemble de bibliothèques Python pour l'analyse de donnée
    - Distribution des données (KDE)
    - Corrélation (Pearson et Spearman)
 
-3. **Modélisation Prédictive**
+3. **Utilité des analyses**
    - Identification des zones à risque
    - Analyse des facteurs de propagation
+   - Evolution du terrorisme
+   - Causes et motifs
 
 ## 🚀 Installation et Configuration
 
