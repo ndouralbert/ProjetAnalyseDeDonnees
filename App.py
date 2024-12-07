@@ -1,4 +1,3 @@
-#Mis à jour 02/12/2024
 import warnings
 import io
 import base64
@@ -37,15 +36,19 @@ import networkx as nx
 from fa2_modified import ForceAtlas2
 from community import community_louvain
 from dash import html
-# Ignorer les avertissements de convergence
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
+
+from dash.exceptions import PreventUpdate
+import time
+import plotly.express as px
+from sklearn.mixture import BayesianGaussianMixture
+from sklearn.cluster import DBSCAN
 
 
 def create_kmeans(df, columns, n_clusters=3):
     try:
         X = df[columns].dropna().values
         
-        # Limiter le nombre de points pour accélérer le calcul
         if len(X) > 10000:
             X = X[:10000]
         
@@ -73,26 +76,20 @@ def create_kmeans(df, columns, n_clusters=3):
 def Ccreate_heatmap(df, columns):
     numeric_columns = ['iyear','alternative', 'claimed', 'crit1', 'doubtterr', 'extended', 'individual', 'ishostkid', 'multiple', 'natlty1', 'ndays', 'nhostkid', 'nhours', 'nkill', 'nperps', 'nreleased', 'nwound', 'property', 'propvalue', 'specificity', 'success', 'suicide', 'vicinity', 'crit2', 'crit3', 'guncertain1', 'nhostkidus', 'nkillter', 'nkillus', 'nperpcap', 'nwoundte', 'nwoundus', 'ransom', 'ransomamt']
 
-    # Sélectionner les colonnes qui sont à la fois dans le DataFrame et dans numeric_columns
     available_columns = list(set(df.columns) & set(numeric_columns))
 
     if not available_columns:
         print("Aucune colonne numérique valide trouvée.")
-        return {}, {}  # Retourner des figures vides si aucune colonne valide n'est trouvée
-
-    # Créer un nouveau DataFrame avec seulement les colonnes numériques disponibles
+        return {}, {}  
+    
     numeric_df = df[available_columns]
 
-    # Convertir en type numérique et gérer les valeurs manquantes
     for col in numeric_df.columns:
-        numeric_df[col] = pd.to_numeric(numeric_df[col], errors='coerce')
-        numeric_df[col] = numeric_df[col].fillna(numeric_df[col].median())
+        numeric_df.loc[:, col] = numeric_df[col].fillna(numeric_df[col].median())
 
-    # Calculer les corrélations
     pearson_corr = numeric_df.corr(method='pearson')
     spearman_corr = numeric_df.corr(method='spearman')
 
-    # Créer les heatmaps
     pearson_heatmap = px.imshow(
         pearson_corr,
         color_continuous_scale='RdBu_r',
@@ -101,7 +98,6 @@ def Ccreate_heatmap(df, columns):
         labels=dict(color="Coeff de corrélation"),
         title="Corrélation de Pearson"
     )
-    
     spearman_heatmap = px.imshow(
         spearman_corr,
         color_continuous_scale='RdBu_r',
@@ -112,7 +108,6 @@ def Ccreate_heatmap(df, columns):
     )
 
         
-    # Mise à jour des mises en page
     for heatmap in [pearson_heatmap, spearman_heatmap]:
         heatmap.update_layout(
             width=550,
@@ -134,24 +129,21 @@ def Ccreate_heatmap(df, columns):
         )
 
     return pearson_heatmap, spearman_heatmap
-
+#pd.options.mode.chained_assignment = None
 def load_and_prepare_data(file_path):
     try:
-        # Supprime temporairement les avertissements de copie
         pd.options.mode.chained_assignment = None
 
-        # Liste des colonnes à garder (inchangée)
         columns_to_keep = ['alternative','location', 'attacktype1_txt', 'city', 'claimed', 'country_txt', 'crit1', 'doubtterr', 'extended', 'gname', 'iday', 'imonth', 'individual', 'ishostkid', 'iyear', 'latitude', 'longitude', 'multiple', 'natlty1', 'ndays', 'nhostkid', 'nhours', 'nkill', 'nperps', 'nreleased', 'nwound', 'property', 'propextent_txt', 'propvalue', 'provstate', 'region_txt','region', 'specificity', 'success', 'suicide', 'targtype1_txt', 'vicinity', 'weaptype1_txt','claimmode_txt', 'crit2', 'crit3', 'guncertain1', 'hostkidoutcome_txt', 'kidhijcountry', 'motive', 'natlty1_txt', 'nhostkidus', 'nkillter', 'nkillus', 'nperpcap', 'nwoundte', 'nwoundus', 'propcomment', 'ransom', 'ransomamt', 'scite1', 'targsubtype1_txt', 'weapdetail', 'weapsubtype1_txt']
 
-        # Chargement des données
         df = pd.read_csv(file_path, encoding='ISO-8859-1', low_memory=False, usecols=columns_to_keep)
+        dfp = pd.read_csv(file_path, encoding='ISO-8859-1', low_memory=False, usecols=columns_to_keep)
+
         print(f"DataFrame chargé avec succès. Shape: {df.shape}")
 
-        # Remplacement des valeurs 0 par 1 pour le mois et le jour
         df.loc[df['imonth'] == 0, 'imonth'] = 1
         df.loc[df['iday'] == 0, 'iday'] = 1
 
-        # Création de la colonne datetime
         def create_date(year, month, day):
             try:
                 return pd.Timestamp(year=year, month=month, day=day)
@@ -160,180 +152,110 @@ def load_and_prepare_data(file_path):
 
         df['date'] = df.apply(lambda row: create_date(row['iyear'], row['imonth'], row['iday']), axis=1)
 
-        # Conversion des colonnes numériques et gestion des valeurs manquantes
         df['nkill'] = pd.to_numeric(df['nkill'], errors='coerce').fillna(0)
         df['nwound'] = pd.to_numeric(df['nwound'], errors='coerce').fillna(0)
         df['casualties'] = df['nkill'] + df['nwound']
         df['propvalue'] = pd.to_numeric(df['propvalue'], errors='coerce')
 
-        # Liste des colonnes numériques potentielles (inchangée)
-        numeric_columns = ['iyear','alternative', 'claimed', 'crit1', 
-                           'doubtterr', 'extended','individual','ishostkid',
-                           'multiple','natlty1','ndays','nhostkid','nhours',
-                           'nkill','nperps','nreleased','nwound','property',
-                           'propvalue','specificity','success','suicide',
-                           'vicinity','crit2','crit3','guncertain1',
-                           'nhostkidus','nkillter','nkillus',
-                           'nperpcap','nwoundte','nwoundus',
-                           'ransom','ransomamt']
+        numeric_columns = ['iyear','alternative', 'claimed', 'crit1', 'doubtterr', 'extended','individual','ishostkid','multiple','natlty1','ndays','nhostkid','nhours',
+                           'nkill','nperps','nreleased','nwound','property','propvalue','specificity','success','suicide','vicinity','crit2','crit3','guncertain1',
+                           'nhostkidus','nkillter','nkillus','nperpcap','nwoundte','nwoundus','ransom','ransomamt'] 
 
-        # Sélectionner les colonnes qui sont à la fois dans le DataFrame et dans numeric_columns
         available_numeric_columns = list(set(df.columns) & set(numeric_columns))
 
         if not available_numeric_columns:
             print("Aucune colonne numérique valide trouvée.")
             return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), []
 
-        # Créer un nouveau DataFrame avec seulement les colonnes numériques disponibles
         numeric_df = df[available_numeric_columns].copy()
 
-        # Convertir en type numérique et gérer les valeurs manquantes
         for col in numeric_df.columns:
-            numeric_df[col] = pd.to_numeric(numeric_df[col], errors='coerce')
-            numeric_df[col].fillna(numeric_df[col].median(), inplace=True)
+            numeric_df.loc[:, col] = numeric_df[col].fillna(numeric_df[col].median())
 
-        # Gestion des valeurs manquantes pour les colonnes catégorielles
         categorical_columns = df.select_dtypes(include=['object']).columns
         df[categorical_columns] = df[categorical_columns].fillna('Unknown')
 
-        # Nettoyage des données pour le clustering
         df_cleaned = df.dropna(subset=['nkill', 'nwound']).copy()
 
-        # Normalisation des données pour le clustering
         scaler = StandardScaler()
         scaled_data = scaler.fit_transform(df_cleaned[['nkill', 'nwound']])
 
-        # Application de K-Means
         kmeans = KMeans(n_clusters=3, random_state=42)
         df_cleaned['cluster'] = kmeans.fit_predict(scaled_data)
 
-        # Calcul des corrélations
         pearson_corr = numeric_df.corr(method='pearson')
         spearman_corr = numeric_df.corr(method='spearman')
 
-        # Division des colonnes en paquets de 10
         columns = pearson_corr.columns
 
-        # Réactive les avertissements
         pd.options.mode.chained_assignment = 'warn'
 
-        return df_cleaned, numeric_df, pearson_corr, spearman_corr, columns
+        return df_cleaned, numeric_df, pearson_corr, spearman_corr, columns, dfp,numeric_columns
 
     except Exception as e:
         print(f"Erreur lors du chargement ou du traitement des données: {e}")
         return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), []        
 
-# Exemple d'utilisation de la fonction
-#df, numeric_df, pearson_corr, spearman_corr, column_packages = load_and_prepare_data('globalterrorismdb_0718dist.csv')
-
-
+ 
 
 def create_kmeans(df, columns, n_clusters=3):
-        # Select only the relevant columns and drop rows with NaN values
         X = df[columns].dropna()
         
         if X.empty:
             raise ValueError("No valid data available for clustering.")
         
-        # K-means without normalization
         kmeans_raw = KMeans(n_clusters=n_clusters, random_state=42)
-        df['cluster_raw'] = np.nan  # Initialize the cluster column
+        df['cluster_raw'] = np.nan 
         df.loc[X.index, 'cluster_raw'] = kmeans_raw.fit_predict(X)
     
-        # K-means with normalization
         imputer = SimpleImputer(strategy='mean')
         X_imputed = imputer.fit_transform(X)
         scaler = StandardScaler()
         X_scaled = scaler.fit_transform(X_imputed)
         
         kmeans_normalized = KMeans(n_clusters=n_clusters, random_state=42)
-        df['cluster_normalized'] = np.nan  # Initialize the cluster column
+        df['cluster_normalized'] = np.nan 
         df.loc[X.index, 'cluster_normalized'] = kmeans_normalized.fit_predict(X_scaled)
         
-        # Create scatter plots
         fig_raw = px.scatter(df, x=columns[0], y=columns[1], color='cluster_raw', 
                              title=f"Clustering K-means (n={n_clusters}) sans normalisation")
         fig_normalized = px.scatter(df, x=columns[0], y=columns[1], color='cluster_normalized', 
                                     title=f"Clustering K-means (n={n_clusters}) avec normalisation")
         
         return fig_raw, fig_normalized
+df, numeric_df, pearson_corr, spearman_corr, column_packages, dfp,numeric_columns = load_and_prepare_data('globalterrorismdb_0718dist.csv')
 
-
-
-# Chargement des données
-columns_to_keep = [
-    'alternative', 'attacktype1_txt', 'city', 'claimed', 'country_txt',
-    'crit1', 'doubtterr', 'extended', 'gname', 'iday', 'imonth',
-    'individual', 'ishostkid', 'iyear', 'latitude', 'longitude',
-    'multiple', 'natlty1', 'ndays', 'nhostkid', 'nhours',
-    'nkill', 'nperps', 'nreleased', 'nwound', 'property',
-    'propextent_txt', 'propvalue', 'provstate', 'region_txt',
-    'region', 'specificity', 'success', 'suicide',
-    'targtype1_txt', 'vicinity', 'weaptype1_txt','claimmode_txt',
-    'crit2', 'crit3', 'guncertain1',
-    'hostkidoutcome_txt', 'kidhijcountry', 'natlty1_txt',
-    'nhostkidus', 'nkillter',
-    'nkillus', 'nperpcap',
-    'nwoundte',
-    'nwoundus',
-    'propcomment',
-    'ransom',
-    'ransomamt'
-]
-
-# Chargement du DataFrame
-dfp = pd.read_csv('globalterrorismdb_0718dist.csv',
-                 encoding='ISO-8859-1',
-                 low_memory=False,
-                 usecols=columns_to_keep)
-
-# Définition des colonnes numériques pour PCA et t-SNE
-numeric_columns = ['iyear','alternative', 'claimed', 'crit1', 'doubtterr', 'extended', 'individual', 'ishostkid', 'multiple', 'natlty1', 'ndays', 'nhostkid', 'nhours', 'nkill', 'nperps', 'nreleased', 'nwound', 'property', 'propvalue', 'specificity', 'success', 'suicide', 'vicinity', 'crit2', 'crit3', 'guncertain1', 'nhostkidus', 'nkillter', 'nkillus', 'nperpcap', 'nwoundte', 'nwoundus', 'ransom', 'ransomamt']
-
-# Préparation des données pour PCA
 imputer = SimpleImputer(strategy='mean')
 imputed_data = imputer.fit_transform(dfp[numeric_columns])
 
-# Normalisation des données
 scaler = StandardScaler()
 scaled_data = scaler.fit_transform(imputed_data)
 
-# Application de PCA
 pca = PCA(n_components=2)
 pca_result = pca.fit_transform(scaled_data)
 
-# Ajout des résultats PCA au DataFrame
 dfp['PCA1'] = pca_result[:, 0]
 dfp['PCA2'] = pca_result[:, 1]
 
-# Application de t-SNE sur un sous-échantillon
 def compute_tsne(data):
-    tsne = TSNE(n_components=2, perplexity=min(30, len(data) // 10), random_state=42)  # Ajustement de perplexité
+    tsne = TSNE(n_components=2, perplexity=min(30, len(data) // 10), random_state=42) 
     return tsne.fit_transform(data)
 
-# Échantillonnage aléatoire pour t-SNE
 sample_size = min(3000, len(dfp))
 sample_df = dfp.sample(n=sample_size, random_state=42)
-tsne_result = compute_tsne(scaled_data[:sample_size])  # Utiliser les données normalisées
+tsne_result = compute_tsne(scaled_data[:sample_size])  
 
-# Ajout des résultats t-SNE au DataFrame échantillonné
 sample_df['tSNE1'] = tsne_result[:, 0]
 sample_df['tSNE2'] = tsne_result[:, 1]
-    
-# Fonction pour créer le graphique du réseau sans nœuds isolés
 
 def create_network(df, target_column, min_degree):
-    # Créer le graphe
     g = nx.from_pandas_edgelist(df, source='gname', target=target_column)
 
-    # Filtrer les nœuds avec un degré minimum
     g = g.subgraph([n for n, d in g.degree() if d >= min_degree])
 
-    # Utiliser ForceAtlas2 pour le layout
     forceatlas2 = ForceAtlas2(scalingRatio=2.0, gravity=1.0)
     positions = forceatlas2.forceatlas2_networkx_layout(g, pos=None, iterations=1000)
 
-    # Préparer les données pour Plotly
     edge_x, edge_y = [], []
     for edge in g.edges():
         x0, y0 = positions[edge[0]]
@@ -349,9 +271,8 @@ def create_network(df, target_column, min_degree):
         node_x.append(x)
         node_y.append(y)
         
-        # Déterminer la couleur du nœud en fonction de la cible sélectionnée
         if node in df['gname'].values:
-            node_colors.append('#fc8d62')  # Orange pour les groupes terroristes
+            node_colors.append('#fc8d62') 
         elif target_column == "country_txt":
             node_colors.append('lightblue')
         elif target_column == "region_txt":
@@ -361,22 +282,19 @@ def create_network(df, target_column, min_degree):
         elif target_column == "targtype1_txt":
             node_colors.append('lightgreen')
         elif target_column == "weaptype1_txt":
-            node_colors.append('#800080')  # Violet pour les types d'armes
+            node_colors.append('#800080')  
         elif target_column == "kidhijcountry":
-            node_colors.append('#FFC0CB')  # Rose clair pour le pays d'enlèvement
+            node_colors.append('#FFC0CB') 
         elif target_column == "hostkidoutcome_txt":
-            node_colors.append('#00FFFF')  # Cyan pour l'issue des otages
-
-    # Créer la figure Plotly
+            node_colors.append('#00FFFF')  
+            
     fig = go.Figure()
     
-    # Ajouter les arêtes
     fig.add_trace(go.Scatter(x=edge_x, y=edge_y,
                              line=dict(width=0.5, color='#888'),
                              hoverinfo='none',
                              mode='lines'))
     
-    # Ajouter les nœuds
     node_sizes = [g.degree(node) * 3 for node in g.nodes()]
     
     fig.add_trace(go.Scatter(
@@ -387,7 +305,6 @@ def create_network(df, target_column, min_degree):
         marker=dict(size=node_sizes, color=node_colors, line_width=2)
     ))
 
-    # Ajouter les étiquettes
     fig.add_trace(go.Scatter(
         x=node_x,
         y=node_y,
@@ -399,7 +316,7 @@ def create_network(df, target_column, min_degree):
     ))
 
     fig.update_layout(
-        title=f"Global Terrorism Network: Groups and {target_column} (Filtered)",
+        title=f"Réseau Mondial du Terrorisme : Groupes et {target_column}",
         showlegend=False,
         hovermode='closest',
         margin=dict(b=0,l=0,r=0,t=40),
@@ -408,237 +325,278 @@ def create_network(df, target_column, min_degree):
     )
 
     return fig    
-# Exemple d'utilisation de la fonction
-df, numeric_df, pearson_corr, spearman_corr, column_packages = load_and_prepare_data('globalterrorismdb_0718dist.csv')
-#print("Shape of numeric_df:", numeric_df.shape)
-#print("Columns of numeric_df:", numeric_df.columns.tolist())
 
-
-# Initialisation de l'application Dash
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], suppress_callback_exceptions=True)
-app.server.config['TIMEOUT'] = 600  # 5 minutes
-# Création de l'interface utilisateur avec plusieurs onglets
+app.server.config['TIMEOUT'] = 600  
 app.layout = dbc.Container([
     html.Div(id='dummy-input', children=[], style={'display': 'none'}),
     dcc.Location(id='url', refresh=False),
     dbc.Tabs([
         dbc.Tab(label="Analyses principales", children=[
-            dbc.Row([
-                dbc.Col([
-                    dbc.Card([
-                        dbc.CardBody([
-                            html.H5("Type d'analyse", className="card-title"),
-                            dcc.Dropdown(
-                                id='analysis-type',
-                                options=[
-                                    {'label': 'Analyse géographique', 'value': 'geo'},
-                                    {'label': 'Analyse temporelle', 'value': 'time'},
-                                    {'label': "Analyse des types d'attaques", 'value': 'attack'},
-                                    {'label': "Analyse des armes", 'value': 'weapon'},
-                                    {'label': "Analyse des victimes", 'value': 'casualties'},
-                                    {'label': "Analyse des groupes terroristes", 'value': 'groups'},
-                                    {'label': "Analyse des cibles", 'value': 'targets'},
-                                    {'label': "Analyse des dommages", 'value': 'damage'}
-                                ],
-                                value='geo',
-                                clearable=False,
-                                className="mb-3"
-                            ),
-                            html.Div(id='sub-dropdown-container')
-                        ])
-                    ], className="mb-4 shadow-sm")
-                ], md=3),
-                dbc.Col([
-                    dbc.Tabs([
-                        dbc.Tab(label='Graphique principal', children=[
-                            dcc.Graph(id='main-graph')
-                        ]),
-                        dbc.Tab(label='Heatmaps', children=[
-                            dbc.Row([
-                                dbc.Col([
-                                    html.H5("Corrélation de Pearson", className="text-center"),
-                                    dcc.Graph(id='Ppearson-heatmap', style={'height': '400px'})
-                                ], md=6),
-                                dbc.Col([
-                                    html.H5("Corrélation de Spearman", className="text-center"),
-                                    dcc.Graph(id='Sspearman-heatmap', style={'height': '300px'})
-                                ], md=6)
+            html.Div([
+                    html.P(
+                        "Cette interface vous permet d'explorer les données sous différents angles. L'onglet `Analyses principales` propose une vue d'ensemble générale des données. "
+                        "Vous pouvez y sélectionner le type d'analyse que vous souhaitez réaliser sur le jeu de données. "
+                        "Les autres onglets (corrélations, clustering, distribution des données, réduction de dimension, graphe réseau) couvrent les différentes méthodes d'analyse et de visualisation abordées cette année. "
+                        "Choisissez parmi les options disponibles pour explorer ces différentes dimensions, comme la géographie, le temps et les types d'attaques. "
+                        "Les graphes (principal, heatmaps, et K-means) sont liés à l'analyse sélectionnée.",
+                        className="lead text-muted"
+                    ),
+                dbc.Row([
+                    dbc.Col([
+                        dbc.Card([
+                            dbc.CardBody([
+                                html.H5("Type d'analyse", className="card-title"),
+                                dcc.Dropdown(
+                                    id='analysis-type',
+                                    options=[
+                                        {'label': 'Analyse géographique', 'value': 'geo'},
+                                        {'label': 'Analyse temporelle', 'value': 'time'},
+                                        {'label': "Analyse des types d'attaques", 'value': 'attack'},
+                                        {'label': "Analyse des armes", 'value': 'weapon'},
+                                        {'label': "Analyse des victimes", 'value': 'casualties'},
+                                        {'label': "Analyse des groupes terroristes", 'value': 'groups'},
+                                        {'label': "Analyse des cibles", 'value': 'targets'},
+                                        {'label': "Analyse des dommages", 'value': 'damage'}
+                                    ],
+                                    value='geo',
+                                    clearable=False,
+                                    className="mb-3"
+                                ),
+                                html.Div(id='sub-dropdown-container')
                             ])
-                        ]),
-                        dcc.Tab(label='K-means', children=[
-                            dcc.Dropdown(
-                                id='Kkmeans-n-clusters',
-                                options=[{'label': i, 'value': i} for i in range(1, 6)],
-                                value=3,
-                                style={'width': '50%', 'margin': '10px','font-weight': 'bold'}
-                            ),
-                            dcc.Graph(id='kmeans-graph-raw'),
-                            dcc.Graph(id='kmeans-graph-normalized')
-                        ]),
-                    ], className="mb-4")
-                ], md=8)
+                        ], className="mb-4 shadow-sm")
+                    ], md=3),
+                    dbc.Col([
+                        dbc.Tabs([
+                            dbc.Tab(label='Graphique principal', children=[
+                                html.Div([
+                                    html.P("Selon l'analyse selectionnée, vous obtiendrez une vue d'ensemble. ",
+                                            className="lead text-muted"),
+                                    dcc.Graph(id='main-graph')
+                                ])
+                            ]),
+                            dbc.Tab(label='Heatmaps', children=[
+                                html.Div([
+                                    html.P("Les heatmaps ci-dessous illustrent les corrélations entre différentes variables. "
+                                           "La corrélation de Pearson mesure la relation linéaire, tandis que celle de Spearman évalue la relation monotone.", 
+                                           className="lead text-muted"),
+                                    dbc.Row([
+                                        dbc.Col([
+                                            html.H5("Corrélation de Pearson", className="text-center"),
+                                            dcc.Graph(id='Ppearson-heatmap', style={'height': '400px'})
+                                        ], md=6),
+                                        dbc.Col([
+                                            html.H5("Corrélation de Spearman", className="text-center"),
+                                            dcc.Graph(id='Sspearman-heatmap', style={'height': '300px'})
+                                        ], md=6)
+                                    ])
+                                ])
+                            ]),
+                            dbc.Tab(label='K-means', children=[
+                                html.Div([
+                                    html.P("Cette section permet d'appliquer l'algorithme K-means pour le clustering des données. "
+                                           "Vous pouvez sélectionné le nombre de clusters souhaité pour visualiser les résultats. Les colonnes des axes varient selon l'analyse sélectionnée", 
+                                           className="lead text-muted"),
+                                    dcc.Dropdown(
+                                        id='Kkmeans-n-clusters',
+                                        options=[{'label': i, 'value': i} for i in range(1, 6)],
+                                        value=3,
+                                        style={'width': '50%', 'margin': '10px','font-weight': 'bold'}
+                                    ),
+                                    dcc.Graph(id='kmeans-graph-raw'),
+                                    dcc.Graph(id='kmeans-graph-normalized')
+                                ])
+                            ]),
+                        ], className="mb-4")
+                    ], md=8)
+                ])
             ])
         ]),
         dbc.Tab(label="Corrélations", children=[
-            dbc.Row([
-                dbc.Col(html.H1("Analyse des Corrélations du Terrorisme Global", className="text-center mb-4"), width=12)
-            ]),
-            dbc.Row([
-                dbc.Col([
-                    html.H3("Corrélation de Pearson"),
-                    dcc.Graph(id='pearson-heatmap')
-                ], width=6),
-                dbc.Col([
-                    html.H3("Corrélation de Spearman"),
-                    dcc.Graph(id='spearman-heatmap')
-                ], width=6)
+            html.Div([
+                html.P("Cette section présente une analyse des corrélations entre différentes variables du jeu de données. "
+                       "En visualisant les heatmaps, vous pouvez identifier les relations significatives entre les variables en se servant effectivement de la légende.", 
+                       className="lead text-muted"),
+                dbc.Row([
+                    dbc.Col([
+                        html.H3("Corrélation de Pearson"),
+                        dcc.Graph(id='pearson-heatmap')
+                    ], width=6),
+                    dbc.Col([
+                        html.H3("Corrélation de Spearman"),
+                        dcc.Graph(id='spearman-heatmap')
+                    ], width=6)
+                ])
             ])
         ]),
         dbc.Tab(label="Clustering", children=[
-            dbc.Row([
-                dbc.Col(html.H1("Analyse de Clustering", className="text-center mb-4"), width=12)
-            ]),
-            dbc.Tabs([
-                dbc.Tab(label="K-means", children=[
-                    dbc.Row([
-                        dbc.Col([
-                            dcc.Dropdown(
-                                id='kmeans-column1-dropdown',
-                                options=[{'label': col, 'value': col} for col in numeric_df.columns],
-                                value=numeric_df.columns[0],
-                                placeholder="Sélectionnez la première colonne"
-                            ),
-                        ], width=6),
-                        dbc.Col([
-                            dcc.Dropdown(
-                                id='kmeans-column2-dropdown',
-                                options=[{'label': col, 'value': col} for col in numeric_df.columns],
-                                value=numeric_df.columns[1],
-                                placeholder="Sélectionnez la deuxième colonne"
-                            ),
-                        ], width=6),
+            html.Div([
+                html.P("Dans cette section, vous pouvez appliquer différentes méthodes de clustering sur les données. "
+                       "Utilisez les onglets pour sélectionner entre K-means, DBSCAN et Gaussian Mixture Models (GMM).",
+                       className="lead text-muted"),
+                dbc.Tabs([
+                    dbc.Tab(label="K-means", children=[
+                        html.Div([
+                            html.P("Sélectionnez deux colonnes pour effectuer le clustering K-means. Indiquez également le nombre de clusters souhaités "
+                                   "pour visualiser comment les données sont regroupées.", className="lead text-muted"),
+                            dbc.Row([
+                                dbc.Col([
+                                    dcc.Dropdown(
+                                        id='kmeans-column1-dropdown',
+                                        options=[{'label': col, 'value': col} for col in numeric_df.columns],
+                                        value='iyear',
+                                        placeholder="Sélectionnez la première colonne"
+                                    ),
+                                ], width=6),
+                                dbc.Col([
+                                    dcc.Dropdown(
+                                        id='kmeans-column2-dropdown',
+                                        options=[{'label': col, 'value': col} for col in numeric_df.columns],
+                                        value='nkill',
+                                        placeholder="Sélectionnez la deuxième colonne"
+                                    ),
+                                ], width=6),
+                            ]),
+                            dbc.Row([
+                                dbc.Col([
+                                    html.Label("Nombre de clusters", htmlFor="kmeans-n-clusters", style={'font-weight': 'bold'}),
+                                    dcc.Dropdown(
+                                        id='kmeans-n-clusters',
+                                        options=[{'label': i, 'value': i} for i in range(2, 11)],
+                                        value=3,
+                                        style={'width': '50%', 'margin': '10px'}
+                                    ),
+                                ], width=12),
+                            ]),
+                            dbc.Row([
+                                dbc.Col([dcc.Graph(id='kmeans-raw-plot')], width=6),
+                                dbc.Col([dcc.Graph(id='kmeans-normalized-plot')], width=6),
+                            ]),
+                        ])
                     ]),
-                    dbc.Row([
-                        dbc.Col([
-                            html.Label("Nombre de clusters", htmlFor="kmeans-n-clusters", style={'font-weight': 'bold'} ),
-                            dcc.Dropdown(
-                                id='kmeans-n-clusters',
-                                options=[{'label': i, 'value': i} for i in range(2, 11)],
-                                value=3,
-                                style={'width': '50%', 'margin': '10px'}
-                            ),
-                        ], width=12),
+                    
+                    dbc.Tab(label="DBSCAN", children=[
+                        html.Div([
+                            html.P("DBSCAN est une méthode de clustering qui identifie des groupes de points étroitement liés dans un espace multidimensionnel."
+                                   " Pour l'appliquer, sélectionnez deux variables numériques de votre jeu de données et ajustez les paramètres"
+                                   " Epsilon, qui définit la distance maximale pour considérer des points comme voisins, et Min Samples, qui fixe le nombre minimum de points requis pour former un cluster dense.", 
+                                   className="lead text-muted"),
+                            dbc.Row([
+                                dbc.Col([
+                                    dcc.Dropdown(
+                                        id='dbscan-column1-dropdown',
+                                        options=[{'label': col, 'value': col} for col in numeric_df.columns],
+                                        value='iyear',
+                                        placeholder="Sélectionnez la première colonne"
+                                    ),
+                                ], width=6),
+                                dbc.Col([
+                                    dcc.Dropdown(
+                                        id='dbscan-column2-dropdown',
+                                        options=[{'label': col, 'value': col} for col in numeric_df.columns],
+                                        value='nkill',
+                                        placeholder="Sélectionnez la deuxième colonne"
+                                    ),
+                                ], width=6),
+                            ]),
+                            dbc.Row([
+                                dbc.Col([
+                                    html.Label("Epsilon", htmlFor="dbscan-eps", style={'font-weight': 'bold'}),
+                                    dcc.Slider(
+                                        id='dbscan-eps',
+                                        min=0.1,
+                                        max=2,
+                                        step=0.1,
+                                        value=0.5,
+                                        marks={i/10: str(i/10) for i in range(1, 21)},
+                                    ),
+                                ], width=6),
+                                dbc.Col([
+                                    html.Label("Min Samples", htmlFor="dbscan-min-samples", style={'font-weight': 'bold'}),
+                                    dcc.Slider(
+                                        id='dbscan-min-samples',
+                                        min=2,
+                                        max=20,
+                                        step=1,
+                                        value=5,
+                                        marks={i: str(i) for i in range(2, 21, 2)},
+                                    ),
+                                ], width=6),
+                            ]),
+                            dbc.Row([dbc.Col([dcc.Graph(id='dbscan-plot')], width=12)]),
+                        ])
                     ]),
-                    dbc.Row([
-                        dbc.Col([dcc.Graph(id='kmeans-raw-plot')], width=6),
-                        dbc.Col([dcc.Graph(id='kmeans-normalized-plot')], width=6),
+
+                    dbc.Tab(label="Gaussian Mixture", children=[
+                        html.Div([
+                            html.P("Cette méthode permet de modéliser les données en utilisant plusieurs distributions gaussiennes. "
+                                   "Sélectionnez deux colonnes et le nombre de composants pour voir comment les données sont réparties.", 
+                                   className="lead text-muted"),
+                            dbc.Row([
+                                dbc.Col([
+                                    dcc.Dropdown(
+                                        id='gmm-column1-dropdown',
+                                        options=[{'label': col, 'value': col} for col in numeric_df.columns],
+                                        value='iyear',
+                                        placeholder="Sélectionnez la première colonne"
+                                    ),
+                                ], width=6),
+                                dbc.Col([
+                                    dcc.Dropdown(
+                                        id='gmm-column2-dropdown',
+                                        options=[{'label': col, 'value': col} for col in numeric_df.columns],
+                                        value='nkill',
+                                        placeholder="Sélectionnez la deuxième colonne"
+                                    ),
+                                ], width=6),
+                            ]),
+                            dbc.Row([
+                                dbc.Col([
+                                    html.Label("Nombre de composants", htmlFor="gmm-n-components", style={'font-weight': 'bold'}),
+                                    dcc.Dropdown(
+                                        id='gmm-n-components',
+                                        options=[{'label': i, 'value': i} for i in range(2, 11)],
+                                        value=3,
+                                        style={'width': '50%', 'margin': '10px'}
+                                    ),
+                                ], width=12),
+                            ]),
+                            dbc.Row([dbc.Col([dcc.Graph(id='gmm-plot')], width=12)]),
+                        ])
                     ]),
-                ]),
-                dbc.Tab(label="DBSCAN", children=[
-                    dbc.Row([
-                        dbc.Col([
-                            dcc.Dropdown(
-                                id='dbscan-column1-dropdown',
-                                options=[{'label': col, 'value': col} for col in numeric_df.columns],
-                                value=numeric_df.columns[0],
-                                placeholder="Sélectionnez la première colonne"
-                            ),
-                        ], width=6),
-                        dbc.Col([
-                            dcc.Dropdown(
-                                id='dbscan-column2-dropdown',
-                                options=[{'label': col, 'value': col} for col in numeric_df.columns],
-                                value=numeric_df.columns[1],
-                                placeholder="Sélectionnez la deuxième colonne"
-                            ),
-                        ], width=6),
-                    ]),
-                    dbc.Row([
-                        dbc.Col([
-                            html.Label("Epsilon", htmlFor="dbscan-eps", style={'font-weight': 'bold'}),
-                            dcc.Slider(
-                                id='dbscan-eps',
-                                min=0.1,
-                                max=2,
-                                step=0.1,
-                                value=0.5,
-                                marks={i/10: str(i/10) for i in range(1, 21)},
-                            ),
-                        ], width=6),
-                        dbc.Col([
-                            html.Label("Min Samples", htmlFor="dbscan-min-samples", style={'font-weight': 'bold'}),
-                            dcc.Slider(
-                                id='dbscan-min-samples',
-                                min=2,
-                                max=20,
-                                step=1,
-                                value=5,
-                                marks={i: str(i) for i in range(2, 21, 2)},
-                            ),
-                        ], width=6),
-                    ]),
-                    dbc.Row([dbc.Col([dcc.Graph(id='dbscan-plot')], width=12)]),
-                ]),
-                dbc.Tab(label="Gaussian Mixture", children=[
-                    dbc.Row([
-                        dbc.Col([
-                            dcc.Dropdown(
-                                id='gmm-column1-dropdown',
-                                options=[{'label': col, 'value': col} for col in numeric_df.columns],
-                                value=numeric_df.columns[0],
-                                placeholder="Sélectionnez la première colonne"
-                            ),
-                        ], width=6),
-                        dbc.Col([
-                            dcc.Dropdown(
-                                id='gmm-column2-dropdown',
-                                options=[{'label': col, 'value': col} for col in numeric_df.columns],
-                                value=numeric_df.columns[1],
-                                placeholder="Sélectionnez la deuxième colonne"
-                            ),
-                        ], width=6),
-                    ]),
-                    dbc.Row([
-                        dbc.Col([
-                            html.Label("Nombre de composants", htmlFor="gmm-n-components", style={'font-weight': 'bold'}),
-                            dcc.Dropdown(
-                                id='gmm-n-components',
-                                options=[{'label': i, 'value': i} for i in range(2, 11)],
-                                value=3,
-                                style={'width': '50%', 'margin': '10px'}
-                            ),
-                        ], width=12),
-                    ]),
-                    dbc.Row([dbc.Col([dcc.Graph(id='gmm-plot')], width=12)]),
-                ]),
-            ], className="mt-4"),
+                ], className="mt-4"),
+            ])
         ]),
-        dbc.Tab(label="Analyse Bootstrap", children=[
-            dbc.Row([
-                dbc.Col(html.H1("Comparaison avec Distribution Normale et KDE", className="text-center mb-4"), width=12)
-            ]),
-            dbc.Row([
-                dbc.Col([
-                    dcc.Dropdown(
-                        id='bootstrap-kde-column-dropdown',
-                        options=[{'label': col, 'value': col} for col in numeric_df.columns],
-                        value=numeric_df.columns[0] if len(numeric_df.columns) > 0 else None,
-                        clearable=False,
-                        style={'width': '50%', 'padding': '10px', 'fontSize': 16}
-                    ),
-                    dcc.Graph(id='bootstrap-kde-plot')
-                ], width=12)
-            ]),
-        ]),
+       dbc.Tab(label="Distribution des Données", children=[
+           html.Div([
+               html.P("Dans cette section, vous pouvez comparer la distribution de données avec une distribution normale à l'aide de la méthode de Kernel Density Estimation (KDE). "
+                      "Sélectionnez une colonne dans le menu déroulant pour visualiser comment elle se compare à une distribution normale. "
+                      "Le graphique affichera votre distribution ainsi qu'une estimation de densité qui vous permettra d'évaluer si les données suivent une distribution normale.", 
+                      className="lead text-muted"),
+               dbc.Row([ 
+                   dbc.Col([ 
+                       dcc.Dropdown(
+                           id='bootstrap-kde-column-dropdown',
+                           options=[{'label': col, 'value': col} for col in numeric_df.columns],
+                           value='iyear',
+                           clearable=False,
+                           style={'width' : '50%', 'padding' : '10px', 'fontSize' : 16}
+                       ),
+                       dcc.Graph(id='bootstrap-kde-plot')
+                   ], width=12)
+               ]),
+           ])
+       ]),
         
-        dbc.Tab(label="Analyse PCA et t-SNE", children=[
-            dbc.Row([
-                dbc.Col(html.H1("Analyse PCA et t-SNE", className="text-center mb-4"), width=12)
-            ]),
-            
-            # Nouvelle ligne pour la sélection de la colonne
+        dbc.Tab(label="Réduction de dimension", children=[
             dbc.Row([
                 dbc.Col([
+                    html.P("Dans cette section, vous pouvez appliquer des techniques de réduction de dimensionnalité, telles que l'Analyse en Composantes Principales (PCA) "
+                        "et t-Distributed Stochastic Neighbor Embedding (t-SNE), pour visualiser les données dans un espace à deux dimensions. "
+                        "Ces méthodes sont particulièrement utiles pour explorer des ensembles de données complexes et identifier des structures sous-jacentes. "
+                        "Sélectionnez un attribut dans le menu déroulant pour colorer les points sur les graphiques, ce qui vous permettra d'analyser les relations entre les différentes classes ou catégories dans les données.", 
+                        className="lead text-muted"),
                     html.Label("Sélectionnez l'attribut de couleur :", style={'font-weight': 'bold'}),
                     dcc.Dropdown(
                         id='color-dropdown',
@@ -650,7 +608,7 @@ app.layout = dbc.Container([
                             {'label': 'Groupe terroriste', 'value': 'gname'},
                             {'label': 'Type de cible', 'value': 'targtype1_txt'},
                             {'label': "Type d'arme", 'value': 'weaptype1_txt'},
-                            {'label': "Pays de l\'enlèvement", 'value': 'kidhijcountry'},
+                            {'label': "Pays de l'enlèvement", 'value': 'kidhijcountry'},
                             {'label': 'Issue de la prise d\'otages', 'value': 'hostkidoutcome_txt'},
                             {'label': 'Étendue des dégâts', 'value': 'propextent_txt'},
                             {'label': 'Province/État', 'value': 'provstate'},
@@ -661,18 +619,22 @@ app.layout = dbc.Container([
                         clearable=False,
                         style={'width': '60%', 'padding': '10px', 'fontSize': 16}
                     ),
-                ], width=4)
+                ], width=12)
             ]),
-
-            # Ligne pour les graphiques PCA et t-SNE
             dbc.Row([
-                dbc.Col(dcc.Graph(id='pca-scatter'), width=6),  # Graphique pour PCA
-                dbc.Col(dcc.Graph(id='tsne-scatter'), width=6)   # Graphique pour t-SNE
+                dbc.Col(dcc.Graph(id='pca-scatter'), width=6),
+                dbc.Col(dcc.Graph(id='tsne-scatter'), width=6)
             ])
         ]),
         dbc.Tab(label='Graphe Réseau', children=[
             html.Div([
-                html.Label("Select Target Attribute:", style={'font-weight': 'bold'}),
+                html.P("Dans cette section, vous pouvez visualiser les relations entre les groupes terroristes et différents attributs des attaques sous forme de graphe interactif. "
+                    "Sélectionnez un attribut cible dans le menu déroulant pour déterminer comment les nœuds du graphe seront colorés. Les options incluent les pays, régions, types d'attaques, types de cibles, types d'armes, pays de kidnapping, et résultats des prises d'otages. "
+                    "Ajustez le degré minimum des nœuds à l'aide du curseur pour filtrer les connexions moins significatives et vous concentrer sur les relations les plus importantes. "
+                    "Le graphe résultant illustrera les interconnexions entre les groupes terroristes et l'attribut sélectionné, avec une légende adaptée pour faciliter l'interprétation. "
+                    "Cette visualisation vous aidera à comprendre les patterns et les tendances dans les activités terroristes à travers différentes dimensions.", 
+                    className="lead text-muted"),
+                html.Label("Selectionnez un attribut:", style={'font-weight': 'bold'}),
                 dcc.Dropdown(
                     id='target-dropdown',
                     options=[
@@ -688,8 +650,7 @@ app.layout = dbc.Container([
                     clearable=False,
                     style={'width': '50%'}
                 ),
-                
-                html.Label("Minimum Degree of Nodes:", style={'font-weight': 'bold'}),
+                html.Label("Degré minimum des nœuds:", style={'font-weight': 'bold'}),
                 dcc.Slider(
                     id='min-degree-slider',
                     min=1,
@@ -699,11 +660,10 @@ app.layout = dbc.Container([
                     step=1,
                     tooltip={"placement": "bottom", "always_visible": True}
                 ),
-                
                 html.Div(id='legend-container', style={'margin-top': '20px'})
-            ], style={'width': '50%', 'margin': 'auto'}),
+            ], style={'width': '100%', 'margin': 'auto'}),
             
-            dcc.Graph(id='network-graph', style={'height':'80vh'})  # Increased height for the graph
+            dcc.Graph(id='network-graph', style={'height':'80vh'})
         ])
     ])
 ])
@@ -729,7 +689,7 @@ def update_pca_graph(color_column):
                 "Second Principal Component"}
     )
     
-    fig.update_layout(title=f"PCA Scatter Plot (colored by {color_column})")
+    fig.update_layout(title=f"Diagramme de dispersion PCA (colorié par {color_column})")
     
     return fig
 
@@ -752,11 +712,9 @@ def update_tsne_graph(color_column):
                 "t-SNE Component 2"}
     )
     
-    fig.update_layout(title=f"t-SNE Scatter Plot (colored by {color_column})")
+    fig.update_layout(title=f"Diagramme de dispersion t-SNE (colorié par {color_column})")
     
     return fig
-
-# Callback pour mettre à jour les graphiques en fonction de l'analyse exécutée
 
 @app.callback(
     [Output('network-graph', 'figure'),
@@ -767,7 +725,6 @@ def update_tsne_graph(color_column):
 def update_network_graph(selected_target, min_degree):
     fig = create_network(df, selected_target, min_degree)
     
-    # Create the legend based on selected target
     legend_items = [
         html.Div([
             html.Div(style={'backgroundColor': '#fc8d62', 'width': 20, 'height': 20}),
@@ -813,7 +770,6 @@ def update_network_graph(selected_target, min_degree):
     
     return fig, legend_items
     
-# Fonction pour créer une heatmap
 def create_heatmap(corr_matrix, columns, title):
     fig = px.imshow(corr_matrix.loc[columns, columns],
                     labels=dict(x="Variables", y="Variables", color="Corrélation"),
@@ -838,13 +794,10 @@ def create_heatmap(corr_matrix, columns, title):
             x=0.5,
             orientation="h"
         ),
-        margin=dict(l=20, r=50, t=50, b=100)  # Augmenté en bas pour la légende
+        margin=dict(l=20, r=50, t=50, b=100) 
     )
     
     return fig
-# kmeans
-from dash.exceptions import PreventUpdate
-import time
 
 @app.callback(
     [Output('kmeans-raw-plot', 'figure'),
@@ -854,7 +807,7 @@ import time
      Input('kmeans-n-clusters', 'value')]
 )
 def update_kmeans_plots(column1, column2, n_clusters):
-    if not column1 or not column2:
+    if not column1 or not column2 or n_clusters is None:
         raise PreventUpdate
     
     try:
@@ -862,15 +815,15 @@ def update_kmeans_plots(column1, column2, n_clusters):
         fig_raw, fig_normalized = create_kmeans(df, [column1, column2], n_clusters)
         end_time = time.time()
         
-        if end_time - start_time > 30:  # Si le calcul prend plus de 30 secondes
+        if end_time - start_time > 30:
             print("Le calcul K-means a pris trop de temps.")
             return px.scatter(title="Calcul trop long"), px.scatter(title="Calcul trop long")
         
         return fig_raw, fig_normalized
     except Exception as e:
         print(f"Erreur lors de la création des graphiques K-means : {e}")
-        return px.scatter(title="Erreur dans le calcul"), px.scatter(title="Erreur dans le calcul")
-#DBSCAN : 
+        return px.scatter(title="Erreur dans le calcul K-means"), px.scatter(title="Erreur dans le calcul K-means")
+
 @app.callback(
     Output('gmm-plot', 'figure'),
     [Input('gmm-column1-dropdown', 'value'),
@@ -878,16 +831,21 @@ def update_kmeans_plots(column1, column2, n_clusters):
      Input('gmm-n-components', 'value')]
 )
 def update_gmm_plot(column1, column2, n_components):
-    if column1 and column2:
+    if not column1 or not column2 or n_components is None:
+        return px.scatter(title="Veuillez sélectionner deux colonnes et le nombre de composants.")
+    
+    try:
         X = df[[column1, column2]].dropna().values
-        gmm = BayesianGaussianMixture(n_components=n_components,  init_params='random', random_state=42)
+        gmm = BayesianGaussianMixture(n_components=n_components, init_params='random', random_state=42)
         labels = gmm.fit_predict(X)
         
         fig = px.scatter(x=X[:, 0], y=X[:, 1], color=labels,
                          labels={'x': column1, 'y': column2},
                          title=f"Gaussian Mixture (n={n_components})")
         return fig
-    return {}
+    except Exception as e:
+        print(f"Erreur lors de la création du graphique GMM : {e}")
+        return px.scatter(title="Erreur dans le calcul GMM")
 
 
 @app.callback(
@@ -912,8 +870,6 @@ def update_dbscan_plot(column1, column2, eps, min_samples):
             print(f"Error in DBSCAN: {e}")
             return px.scatter(title="Error in DBSCAN calculation")
     return px.scatter(title="Please select both columns")
-    
-# Callbacks pour les heatmaps
 @app.callback(
     Output('pearson-heatmap', 'figure'),
     Input('dummy-input', 'children')
@@ -928,45 +884,47 @@ def update_pearson_heatmap(dummy):
 def update_spearman_heatmap(dummy):
     return create_heatmap(spearman_corr, spearman_corr.columns, "Corrélation de Spearman")
 
-# Callback pour l'analyse bootstrap avec KDE
 @app.callback(
     Output('bootstrap-kde-plot', 'figure'),
     Input('bootstrap-kde-column-dropdown', 'value')
 )
 def update_bootstrap_kde_plot(selected_column):
-    # Données originales
+    if selected_column is None:
+        return go.Figure()  
+    
     original_data = numeric_df[selected_column].dropna()
     
-    # Générer des données normales
     mean = original_data.mean()
     std = original_data.std()
     generated_data = np.random.normal(mean, std, 1000)
-    
-    # Créer la figure avec seaborn pour histogramme et KDE
-    plt.figure(figsize=(10, 6))
-    
-    # Histogramme des données originales avec KDE
-    sns.histplot(original_data, kde=True, stat="density", label="Données Originales", color='blue', bins=30)
-    
-    # Histogramme des données générées avec KDE
-    sns.histplot(generated_data, kde=True, stat="density", label="Distribution Normale Générée", color='orange', bins=30)
-    
-    plt.title(f"Comparaison de la distribution de {selected_column} avec une distribution normale")
-    plt.xlabel(selected_column)
-    plt.ylabel("Densité")
-    
-    plt.legend()
-    
-    # Convertir le graphique matplotlib en image pour Dash
-    buf = io.BytesIO()
-    plt.savefig(buf, format="png")
-    plt.close()
-    
-    data = base64.b64encode(buf.getbuffer()).decode("ascii")
-    
-    # Créer une figure Plotly à partir de l'image
-    fig = go.Figure(go.Image(source=f"data:image/png;base64,{data}"))
-    
+
+    fig = go.Figure()
+
+    fig.add_trace(go.Histogram(
+        x=original_data,
+        name='Données Originales',
+        opacity=0.75,
+        marker=dict(color='blue'),
+        histnorm='probability density',
+        nbinsx=30
+    ))
+
+    fig.add_trace(go.Histogram(
+        x=generated_data,
+        name='Distribution Normale Générée',
+        opacity=0.75,
+        marker=dict(color='orange'),
+        histnorm='probability density',
+        nbinsx=30
+    ))
+
+    fig.update_layout(
+        title=f"Comparaison de la distribution de {selected_column} avec une distribution normale",
+        xaxis_title=selected_column,
+        yaxis_title="Densité",
+        barmode='overlay'
+    )
+
     return fig
 
 @app.callback(
@@ -976,9 +934,9 @@ def update_bootstrap_kde_plot(selected_column):
 def update_sub_dropdown(analysis_type):
     dropdown_options = {
         'geo': [
+            {'label': 'Carte des attaques', 'value': 'map'},
             {'label': 'Attaques par pays', 'value': 'country'},
             {'label': 'Attaques par région', 'value': 'region'},
-            {'label': 'Carte des attaques', 'value': 'map'},
             {'label': 'Évolution géographique', 'value': 'geo_evolution'},
             {'label': 'Analyse par ville', 'value': 'city_analysis'}
         ],
@@ -1038,26 +996,21 @@ def update_sub_dropdown(analysis_type):
      Input('cluster-y-axis', 'value')]
 )
 def update_cluster_plot(x_axis, y_axis):
-    # Normaliser les données
     scaler = StandardScaler()
     scaled_data = scaler.fit_transform(df[[x_axis, y_axis]])
 
-    # Appliquer K-Means
     kmeans = KMeans(n_clusters=3)
     df['cluster'] = kmeans.fit_predict(scaled_data)
 
-    # Créer le graphique
     plt.figure(figsize=(10, 6))
     sns.scatterplot(data=df, x=x_axis, y=y_axis, hue='cluster', palette='viridis')
     plt.title("Clusters de K-Means")
     
-    # Convertir le graphique en image
     buf = io.BytesIO()
     plt.savefig(buf, format='png')
     plt.close()
     buf.seek(0)
     
-    # Encoder l'image en base64
     img_str = base64.b64encode(buf.getvalue()).decode()
     return f'data:image/png;base64,{img_str}'
 
@@ -1083,7 +1036,6 @@ def update_graphs(analysis_type, analysis_values, n_clusters):
     if analysis_value is None:
         raise PreventUpdate
 
-    # Define analysis functions
     analysis_functions = {
         "geo": geo_analysis,
         "time": time_analysis,
@@ -1125,7 +1077,6 @@ def update_graphs(analysis_type, analysis_values, n_clusters):
     
     return main_figure, pearson_heatmap, spearman_heatmap, kmeans_figure_raw, kmeans_figure_normalized
     
-        # Définir les colonnes pour la heatmap et le K-means en fonction du type d'analyse
     heatmap_columns = {
         'geo': ['latitude', 'longitude', 'region', 'specificity', 'vicinity','nkill', 'nwound'],
         'time': ['iyear', 'imonth', 'iday', 'ndays', 'nhours', 'extended','nkill', 'nwound'],
@@ -1141,18 +1092,14 @@ def update_graphs(analysis_type, analysis_values, n_clusters):
     
     if columns:
         heatmap_figure = Ccreate_heatmap(df, columns)
-        kmeans_figure = create_kmeans(df, columns[:2])  # Utiliser les deux premières colonnes pour K-means
+        kmeans_figure = create_kmeans(df, columns[:2])  
     else:
         heatmap_figure = {}
         kmeans_figure = {}
 
     return main_figure, heatmap_figure, kmeans_figure
     
-# Fonctions d'analyse géographique
-# Options d'analyse géographique pour l'interface utilisateur
-
-
-# Fonction d'analyse géographique complète
+    
 def geo_analysis(analysis_value):
     
     if analysis_value == "country":
@@ -1198,7 +1145,6 @@ def geo_analysis(analysis_value):
         
         
         
-# Fonctions d'analyse temporelle
 def time_analysis(analysis_value):
 
     if analysis_value == "yearly":
@@ -1234,7 +1180,6 @@ def time_analysis(analysis_value):
         return px.line(time_attack, x='iyear', y='count', color='attacktype1_txt', 
                        title="Évolution des types d'attaques au fil du temps")
         
-# Fonctions d'analyse des attaques
 def attack_analysis(analysis_value):
     
     if analysis_value == "types":
@@ -1260,7 +1205,6 @@ def attack_analysis(analysis_value):
                       title="Proportion d'incidents étendus",
                       labels={'x': 'Type d\'incident', 'y': 'Pourcentage'})
 
-# Fonctions d'analyse des armes
 def weapon_analysis(analysis_value):
     if analysis_value == "types":
         weapon_types = df['weaptype1_txt'].value_counts()
@@ -1285,7 +1229,6 @@ def weapon_analysis(analysis_value):
                       title="Létalité moyenne par type d'arme",
                       labels={'x':'Type d\'arme', 'y':'Nombre moyen de morts'})
 
-# Fonctions pour l'analyse des victimes
 def casualties_analysis(analysis_value):
     if analysis_value == "yearly":
         yearly_casualties = df.groupby('iyear')['casualties'].sum().reset_index()
@@ -1306,14 +1249,12 @@ def casualties_analysis(analysis_value):
                       labels={'x': 'Pays', 'y': 'Nombre de victimes'})
 
     elif analysis_value == "kill_wound_ratio":
-        # Calculer le ratio morts/blessés
-        df['kill_wound_ratio'] = df['nkill'] / (df['nwound'] + 1)  # Ajouter 1 pour éviter la division par zéro
+        df['kill_wound_ratio'] = df['nkill'] / (df['nwound'] + 1)  
         ratio_by_attack = df.groupby('attacktype1_txt')['kill_wound_ratio'].mean().sort_values(ascending=False)
         return px.bar(x=ratio_by_attack.index, y=ratio_by_attack.values, 
                       title="Ratio moyen morts/blessés par type d'attaque", 
                       labels={'x': 'Type d\'attaque', 'y': 'Ratio morts/blessés'})
         
-# Fonctions pour l'analyse des groupes terroristes
 def groups_analysis(analysis_value):
 
     if analysis_value == "most_active":
@@ -1346,7 +1287,6 @@ def groups_analysis(analysis_value):
                       title="Méthodes préférées des 10 groupes les plus actifs", 
                       labels={'gname': 'Groupe', 'count': 'Nombre d\'attaques'})
         
-# Fonctions pour l'analyse des cibles
 def targets_analysis(analysis_value):
 
     if analysis_value == "types":
@@ -1371,7 +1311,7 @@ def targets_analysis(analysis_value):
         return px.bar(x=target_lethality.index, y=target_lethality.values,
                       title="Létalité moyenne par type de cible",
                       labels={'x': 'Type de cible', 'y': 'Nombre moyen de morts'})
-# Fonctions pour l'analyse des dommages
+
 def damage_analysis(analysis_value):
     if analysis_value == "types":
         damage_types = df['propextent_txt'].value_counts()
@@ -1398,7 +1338,10 @@ def damage_analysis(analysis_value):
                       labels={'x': 'Type de dommage', 'y': 'Coût moyen (USD)'})
 
 # Lancement de l'application
-#app.run_server(debug=True, host="0.0.0.0")
+
+#if __name__ == '__main__':
+#   app.run_server(debug=True)
+app.server.config['TIMEOUT'] = 600  
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(port=8050, debug=True)
