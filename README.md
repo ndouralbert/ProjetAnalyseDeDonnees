@@ -37,11 +37,6 @@ Ce projet utilise un ensemble de bibliothèques Python pour l'analyse de donnée
 - **Machine Learning et Analyse Statistique** :
   - **Scikit-learn** : Pour le clustering (KMeans, DBSCAN), la réduction de dimension (PCA, t-SNE), et d'autres algorithmes d'apprentissage machine.
 
-### Techniques Avancées
-- Clustering (KMeans, DBSCAN)
-- Réduction de dimensionnalité (PCA, t-SNE)
-- Analyse de réseau
-- Modèles de mélange gaussien
 
 ## 📊 Fonctionnalités Principales
 
@@ -52,8 +47,11 @@ Ce projet utilise un ensemble de bibliothèques Python pour l'analyse de donnée
 
 2. **Visualisations Interactives**
    - Cartes géographiques dynamiques
-   - Graphiques de clustering
-   - Réseaux d'interactions terroristes
+   - Graphiques de clustering(KMeans, DBSCAN, GMM)
+   - Réseaux d'interactions terroristes(NetworkX)
+   - Réduction de dimensionnalité (PCA, t-SNE)
+   - Distribution des données (KDE)
+   - Corrélation (Pearson et Spearman)
 
 3. **Modélisation Prédictive**
    - Identification des zones à risque
